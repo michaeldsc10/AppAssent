@@ -2,7 +2,7 @@
 const CACHE = 'assent-v4.6'
 const FILES = [
   './',
-  './assent_v46.html',
+  './Index.html',
   './manifest.json',
   'https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap',
   'https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js',
