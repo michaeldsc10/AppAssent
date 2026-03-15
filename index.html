@@ -1240,11 +1240,6 @@ hr.divider{border:none;border-top:1px solid var(--border);margin:30px 0}
               <input id="cfgEstoqueMin" type="number" inputmode="numeric" placeholder="3" min="0" step="1" oninput="saveConfig()">
               <span style="font-size:11px;color:var(--text-muted);margin-top:3px">Padrão: 3 unidades</span>
             </div>
-            <div class="form-group" style="grid-column:1/-1">
-              <label>Repositório GitHub para atualizações</label>
-              <input id="cfgGithubRepo" placeholder="Ex: usuario/assent" oninput="saveConfig()">
-              <span style="font-size:11px;color:var(--text-muted);margin-top:3px">Formato: <code>usuario/repositorio</code> — usado para verificar novas versões</span>
-            </div>
           </div>
         </div>
 
@@ -2060,7 +2055,7 @@ function saveConfig(){
   config.empresaTel=document.getElementById('cfgEmpresaTel').value.trim()
   config.moeda=document.getElementById('cfgMoeda').value
   config.estoqueMin=parseInt2(document.getElementById('cfgEstoqueMin').value,3,0)
-  config.githubRepo=(document.getElementById('cfgGithubRepo')?.value||'').trim()
+  config.githubRepo=undefined // campo removido — repo fixo internamente
   lsSet('config',config)
   applyConfig()
   renderStockAlert()
@@ -2091,7 +2086,6 @@ function loadConfigUI(){
   document.getElementById('cfgEmpresaTel').value=config.empresaTel||''
   document.getElementById('cfgMoeda').value=config.moeda||'R$'
   document.getElementById('cfgEstoqueMin').value=config.estoqueMin!==undefined?config.estoqueMin:3
-  if(document.getElementById('cfgGithubRepo'))document.getElementById('cfgGithubRepo').value=config.githubRepo||''
   applyConfig()
   // lista de alertas de estoque
   const min=config.estoqueMin!==undefined?config.estoqueMin:3
@@ -2776,31 +2770,19 @@ function exportarVendasExcel(){
 }
 
 /* ══ BACKUP ══ */
-function exportarDados(){
-  try{downloadBlob(new Blob([JSON.stringify({clientes,produtos,vendas,entradas,caixas,servicos,despesas,fornecedores,vendedores,config},null,2)],{type:'application/json'}),'assent_dados.json');toast('⬇️ Dados exportados com sucesso!')}
-  catch(e){toast('Erro ao exportar: '+e.message,'error')}
-}
+// exportarDados e restaurarBackup são definidos na seção ELECTRON BRIDGE (async, suporte nativo)
+function fazerBackup(){exportarDados()}
 function exportarDadosSilencioso(){
   try{
     const ts=new Date().toISOString().replace(/[:.]/g,'-').slice(0,16)
     downloadBlob(new Blob([JSON.stringify({clientes,produtos,vendas,entradas,caixas,servicos,despesas,fornecedores,vendedores,config},null,2)],{type:'application/json'}),'assent_autobackup_'+ts+'.json')
     const el=document.getElementById('backupStatus')
-    el.textContent='💾 backup: '+new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})
-    el.style.display='block';setTimeout(()=>{el.style.display='none'},5000)
+    if(el){el.textContent='💾 backup: '+new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});el.style.display='block';setTimeout(()=>{el.style.display='none'},5000)}
   }catch(e){}
 }
-function fazerBackup(){exportarDados()}
-function restaurarBackup(){document.getElementById('inputBackup').click()}
 document.getElementById('inputBackup').onchange=function(){
   const r=new FileReader()
-  r.onload=function(){
-    try{
-      const d=JSON.parse(r.result)
-      if(!Array.isArray(d.clientes)||!Array.isArray(d.produtos)||!Array.isArray(d.vendas)){toast('Arquivo inválido.','error');return}
-      clientes=d.clientes;produtos=d.produtos;vendas=d.vendas;entradas=d.entradas||[];caixas=d.caixas||[];servicos=d.servicos||[];despesas=d.despesas||[];fornecedores=d.fornecedores||[];vendedores=d.vendedores||[];if(d.config)config=d.config
-      save();toast('♻️ Backup restaurado com sucesso!')
-    }catch(e){toast('Arquivo corrompido.','error')}
-  }
+  r.onload=function(){_processarBackupJson(r.result)}
   r.onerror=()=>toast('Erro ao ler arquivo.','error')
   if(this.files[0])r.readAsText(this.files[0])
   this.value=''
@@ -5447,6 +5429,8 @@ function renderRelFiado(pv,sumEl,titleEl,countEl,contentEl){
 
 /* ══ ATUALIZAÇÃO VIA GITHUB ══ */
 const VERSAO_ATUAL='4.6'
+const GITHUB_REPO='michaeldsc10/assent'
+const GITHUB_PAGES_URL='https://michaeldsc10.github.io/assent/'
 
 function closeModal(id){
   const el=document.getElementById(id);if(el)el.classList.remove('open')
@@ -5455,39 +5439,29 @@ function closeModal(id){
 async function verificarAtualizacao(){
   const ov=document.getElementById('modalUpdate')
   if(ov)ov.classList.add('open')
-  const repo=config.githubRepo||''
+  const repo=GITHUB_REPO
   const content=document.getElementById('updateContent')
-  if(!repo){
-    content.innerHTML=`
-      <div style="text-align:center;padding:16px">
-        <div style="font-size:32px;margin-bottom:12px">⚙️</div>
-        <div style="font-size:14px;font-weight:600;margin-bottom:8px">Repositório não configurado</div>
-        <div style="font-size:13px;color:var(--text-muted);margin-bottom:16px">
-          Configure o repositório GitHub em <strong>Configurações → Sistema</strong> para verificar atualizações automaticamente.
-        </div>
-        <div style="background:var(--surface3);border-radius:var(--radius);padding:12px;font-size:12px;color:var(--text-muted);text-align:left;margin-bottom:16px">
-          Formato: <code style="color:var(--accent)">usuario/repositorio</code><br>
-          Exemplo: <code style="color:var(--accent)">meuusuario/assent</code>
-        </div>
-        <button class="btn btn-primary btn-sm" onclick="closeModal('modalUpdate');showPage('configuracoes',document.querySelector('[data-tip=Configurações]'))">
-          Ir para Configurações →
-        </button>
-      </div>`
-    return
-  }
   content.innerHTML='<div style="text-align:center;padding:24px;color:var(--text-muted)"><div style="font-size:32px;margin-bottom:12px">⏳</div><div>Verificando versão no GitHub…</div></div>'
   try{
-    const resp=await fetch('https://api.github.com/repos/'+repo+'/releases/latest',{
-      headers:{'Accept':'application/vnd.github.v3+json'}
-    })
-    if(!resp.ok)throw new Error('HTTP '+resp.status)
-    const data=await resp.json()
+    // No Electron usa IPC; no browser usa fetch direto
+    let data
+    if(isElectron()){
+      const r=await window.electronAPI.checkUpdate()
+      if(!r.ok)throw new Error(r.error||'Erro desconhecido')
+      data=r.data
+    } else {
+      const resp=await fetch('https://api.github.com/repos/'+repo+'/releases/latest',{
+        headers:{'Accept':'application/vnd.github.v3+json'}
+      })
+      if(!resp.ok)throw new Error('HTTP '+resp.status)
+      data=await resp.json()
+    }
     const tagName=data.tag_name||'—'
     const versaoRemota=tagName.replace(/^v/i,'')
     const temUpdate=versaoRemota!==VERSAO_ATUAL
     const downloadUrl=data.assets&&data.assets.length
       ? data.assets.find(a=>a.name.endsWith('.html'))?.browser_download_url
-      : data.html_url
+      : null
     const dataLancamento=data.published_at?new Date(data.published_at).toLocaleDateString('pt-BR'):''
     content.innerHTML=`
       <div style="text-align:center;padding:12px 0 20px">
@@ -5501,33 +5475,32 @@ async function verificarAtualizacao(){
             <div style="font-family:'JetBrains Mono',monospace;font-size:16px;font-weight:700;color:${temUpdate?'var(--text-muted)':'var(--green)'}">${VERSAO_ATUAL}</div>
           </div>
           <div style="background:var(--surface3);border-radius:var(--radius);padding:10px 20px;text-align:center">
-            <div style="font-size:11px;color:var(--text-muted);margin-bottom:4px">Versão no GitHub</div>
+            <div style="font-size:11px;color:var(--text-muted);margin-bottom:4px">Versão mais recente</div>
             <div style="font-family:'JetBrains Mono',monospace;font-size:16px;font-weight:700;color:${temUpdate?'var(--green)':'var(--text-muted)'}">${versaoRemota}</div>
           </div>
         </div>
         ${dataLancamento?`<div style="font-size:12px;color:var(--text-muted);margin-bottom:12px">Lançado em ${dataLancamento}</div>`:''}
         ${data.body?`<div style="background:var(--surface3);border-radius:var(--radius);padding:12px;font-size:12px;text-align:left;color:var(--text-dim);max-height:120px;overflow-y:auto;margin-bottom:16px">${escHtml(data.body).slice(0,600)}${data.body.length>600?'…':''}</div>`:''}
-        ${temUpdate&&downloadUrl?`
-          <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap">
-            <a href="${downloadUrl}" download class="btn btn-success" style="text-decoration:none">⬇️ Baixar nova versão</a>
+        ${temUpdate?`
+          <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-bottom:10px">
+            <a href="${GITHUB_PAGES_URL}" target="_blank" rel="noopener" class="btn btn-success" style="text-decoration:none">🌐 Abrir versão atualizada</a>
+            ${downloadUrl?`<a href="${downloadUrl}" download class="btn btn-ghost btn-sm" style="text-decoration:none">⬇️ Baixar arquivo</a>`:''}
             <a href="${data.html_url}" target="_blank" rel="noopener" class="btn btn-ghost btn-sm" style="text-decoration:none">Ver no GitHub →</a>
           </div>
-          <div style="font-size:11px;color:var(--text-muted);margin-top:12px">
-            💡 Baixe o arquivo, abra-o no navegador e importe seu backup para migrar os dados.
+          <div style="font-size:11px;color:var(--text-muted);padding:10px 14px;background:var(--surface3);border-radius:var(--radius);text-align:left">
+            💡 <strong>PWA / Navegador:</strong> Acesse o link acima — a versão mais recente já está no ar.<br>
+            💡 <strong>Electron:</strong> Baixe o arquivo e substitua o anterior. Seu backup é compatível.
           </div>`
-        :temUpdate?`<a href="${data.html_url}" target="_blank" rel="noopener" class="btn btn-primary btn-sm" style="text-decoration:none">Ver release no GitHub →</a>`:
-        '<div style="font-size:13px;color:var(--green)">Nenhuma atualização necessária. 🎉</div>'}
+        :'<div style="font-size:13px;color:var(--green)">Nenhuma atualização necessária. 🎉</div>'}
       </div>`
   }catch(err){
     content.innerHTML=`
       <div style="text-align:center;padding:16px">
         <div style="font-size:32px;margin-bottom:12px">⚠️</div>
         <div style="font-size:14px;font-weight:600;margin-bottom:8px">Não foi possível verificar</div>
-        <div style="font-size:13px;color:var(--text-muted);margin-bottom:12px">
-          Verifique sua conexão com a internet e o nome do repositório configurado.<br>
-          <code style="font-size:11px;color:var(--accent)">${escHtml(repo)}</code>
-        </div>
-        <div style="font-size:11px;color:var(--text-muted)">Erro: ${escHtml(err.message)}</div>
+        <div style="font-size:13px;color:var(--text-muted);margin-bottom:12px">Verifique sua conexão com a internet.</div>
+        <a href="${GITHUB_PAGES_URL}" target="_blank" rel="noopener" class="btn btn-ghost btn-sm" style="text-decoration:none">Abrir ${GITHUB_PAGES_URL} →</a>
+        <div style="font-size:11px;color:var(--text-muted);margin-top:10px">Erro técnico: ${escHtml(err.message)}</div>
       </div>`
   }
 }
@@ -6022,7 +5995,48 @@ function removerPin(){
   },'Remover PIN','Remover','btn-danger')
 }
 
-/* ═══ MOBILE SIDEBAR ═══ */
+/* ═══ ELECTRON BRIDGE ═══ */
+// Quando rodando no Electron, usa diálogos nativos e IPC para atualização
+const isElectron=()=>!!(window.electronAPI?.isElectron)
+
+async function exportarDados(){
+  const json=JSON.stringify({clientes,produtos,vendas,entradas,caixas,servicos,despesas,fornecedores,vendedores,config},null,2)
+  if(isElectron()){
+    const r=await window.electronAPI.saveBackup(json)
+    if(r.ok)toast('💾 Backup salvo em: '+r.path)
+    else if(r.ok===false&&r.path===undefined)toast('Backup cancelado.','info')
+  } else {
+    try{downloadBlob(new Blob([json],{type:'application/json'}),'assent_dados.json');toast('⬇️ Dados exportados com sucesso!')}
+    catch(e){toast('Erro ao exportar: '+e.message,'error')}
+  }
+}
+
+async function restaurarBackup(){
+  if(isElectron()){
+    const r=await window.electronAPI.openBackup()
+    if(!r.ok)return
+    _processarBackupJson(r.content)
+  } else {
+    document.getElementById('inputBackup').click()
+  }
+}
+
+function _processarBackupJson(texto){
+  try{
+    const d=JSON.parse(texto)
+    if(!d.clientes||!d.produtos||!d.vendas)throw new Error('Arquivo inválido')
+    showConfirm('Restaurar o backup? Os dados atuais serão substituídos.',()=>{
+      clientes=d.clientes;produtos=d.produtos;vendas=d.vendas;entradas=d.entradas||[];caixas=d.caixas||[];servicos=d.servicos||[];despesas=d.despesas||[];fornecedores=d.fornecedores||[];vendedores=d.vendedores||[];if(d.config)config=d.config
+      lsSet('clientes',clientes);lsSet('produtos',produtos);lsSet('vendas',vendas)
+      lsSet('entradas',entradas);lsSet('caixas',caixas);lsSet('servicos',servicos)
+      lsSet('despesas',despesas);lsSet('fornecedores',fornecedores);lsSet('vendedores',vendedores)
+      lsSet('config',config)
+      toast('✅ Backup restaurado com sucesso!');render()
+    },'Restaurar backup','Restaurar','btn-warning')
+  }catch(e){toast('Arquivo inválido ou corrompido.','error')}
+}
+
+/* ═══ ELECTRON BRIDGE ═══ */
 function toggleMobileSidebar(){
   const sb=document.getElementById('sidebar')
   const ov=document.getElementById('mobileOverlay')
