@@ -55,7 +55,7 @@
           // Licença válida — libera o app
           window._fbUsuarioAtual = user;
           document.getElementById('loginScreen').style.display = 'none';
-          _iniciarApp();
+          if(document.readyState === 'complete'){ _iniciarApp(); } else { window.addEventListener('load', _iniciarApp); }
         } else {
           // Sem licença ou licença inativa
           _mostrarErroLicenca(user);
