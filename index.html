@@ -2274,6 +2274,7 @@ function populateSelects(){
     ef.innerHTML='<option value="">— Nenhum —</option>'+fornecedores.map(f=>'<option value="'+escHtml(f.nome)+'">'+escHtml(f.nome)+'</option>').join('')
     if(prev)ef.value=prev
   }
+  const fs=document.getElementById("edFornecedor")
   if(fs){
     const prev=fs.value
     fs.innerHTML='<option value="">— Nenhum —</option>'+fornecedores.map((f,i)=>'<option value="'+escHtml(f.nome)+'">'+escHtml(f.nome)+'</option>').join('')
