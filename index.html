@@ -48,7 +48,9 @@
   window._fbOnAuth(async (user) => {
     if (user) {
       try {
+        console.log('✅ UID:', user.uid, '| Email:', user.email);
         const snap = await window._fbGetDoc('licencas', user.uid);
+        console.log('📄 Existe:', snap.exists(), '| Dados:', snap.exists() ? JSON.stringify(snap.data()) : 'nenhum');
         if (snap.exists() && snap.data().ativo === true) {
           // Licença válida — libera o app
           window._fbUsuarioAtual = user;
