@@ -61,7 +61,7 @@
           _mostrarErroLicenca(user);
         }
       } catch(e) {
-        _mostrarErroLicenca(user, 'Erro ao verificar licença. Tente novamente.');
+        console.error('❌ ERRO:', e.message, e); _mostrarErroLicenca(user, 'Erro: ' + e.message);
       }
     } else {
       // Não logado — mostra tela de login
