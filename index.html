@@ -17,7 +17,7 @@
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
   import { getAuth, signInWithEmailAndPassword, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-  import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+  import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
   const firebaseConfig = {
     apiKey: "AIzaSyB9HEWiHFc8YEuj_Ab-7TxGKqdQkSRQAio",
@@ -42,6 +42,7 @@
   window._fbSignInGoogle = () => signInWithPopup(auth, googleProvider);
   window._fbSignOut = () => signOut(auth);
   window._fbGetDoc = (path, id) => getDoc(doc(db, path, id));
+  window._fbSetDoc = (path, id, data, merge) => setDoc(doc(db, path, id), data, merge ? {merge:true} : {});
   window._fbOnAuth = (cb) => onAuthStateChanged(auth, cb);
 
   // Dispara o init do app quando auth estiver pronto
@@ -52,8 +53,15 @@
         const snap = await window._fbGetDoc('licencas', user.uid);
         console.log('📄 Existe:', snap.exists(), '| Dados:', snap.exists() ? JSON.stringify(snap.data()) : 'nenhum');
         if (snap.exists() && snap.data().ativo === true) {
-          // Licença válida — libera o app
+          // Licença válida — busca config global (API key da IA)
           window._fbUsuarioAtual = user;
+          try {
+            const cfgSnap = await window._fbGetDoc('config', 'sistema');
+            window._anthropicKey = cfgSnap.exists() ? (cfgSnap.data().anthropicKey || '') : '';
+          } catch(e) {
+            window._anthropicKey = '';
+            console.warn('Não foi possível carregar config/sistema:', e.message);
+          }
           document.getElementById('loginScreen').style.display = 'none';
           if(document.readyState === 'complete'){ _iniciarApp(); } else { window.addEventListener('load', _iniciarApp); }
         } else {
@@ -573,26 +581,32 @@ hr.divider{border:none;border-top:1px solid var(--border);margin:30px 0}
 
 .td-red{color:var(--red)!important}
 
-/* ── PIN ── */
-#pinScreen{position:fixed;inset:0;background:var(--bg);z-index:10000;display:flex;align-items:center;justify-content:center;flex-direction:column}
-.pin-box{background:var(--surface);border:1px solid var(--border2);border-radius:var(--radius-lg);padding:36px 32px;max-width:360px;width:calc(100% - 32px);box-shadow:0 24px 60px rgba(0,0,0,.5);text-align:center}
-.pin-brand{font-size:22px;font-weight:800;letter-spacing:.06em;color:var(--text);margin-bottom:4px}
-.pin-brand span{color:var(--accent)}
-.pin-subtitle{font-size:13px;color:var(--text-muted);margin-bottom:28px}
-.pin-dots{display:flex;gap:14px;justify-content:center;margin-bottom:28px}
-.pin-dot{width:16px;height:16px;border-radius:50%;border:2px solid var(--border2);background:transparent;transition:all .15s}
-.pin-dot.filled{background:var(--accent);border-color:var(--accent)}
-.pin-dot.error{background:var(--red);border-color:var(--red);animation:pinshake .3s ease}
-@keyframes pinshake{0%,100%{transform:translateX(0)}25%{transform:translateX(-5px)}75%{transform:translateX(5px)}}
-.pin-pad{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;max-width:240px;margin:0 auto 16px}
-.pin-key{background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:16px 8px;font-size:20px;font-weight:600;cursor:pointer;color:var(--text);transition:all .1s;user-select:none}
-.pin-key:hover{background:var(--surface3);border-color:var(--accent)}
-.pin-key:active{transform:scale(.93);background:var(--accent-dim)}
-.pin-key.del{font-size:16px;color:var(--text-muted)}
-.pin-key.zero{grid-column:2}
-.pin-msg{font-size:13px;color:var(--text-muted);min-height:20px;margin-bottom:10px}
-.pin-msg.error{color:var(--red)}
-.pin-msg.success{color:var(--green)}
+/* ── ASSISTENTE IA ── */
+.ia-msg{display:flex;gap:10px;max-width:100%;animation:fadein .2s ease}
+.ia-msg.user{flex-direction:row-reverse}
+.ia-bubble{padding:10px 14px;border-radius:14px;font-size:13px;line-height:1.65;max-width:82%;word-break:break-word;white-space:pre-wrap}
+.ia-bubble.user{background:var(--accent);color:#fff;border-radius:14px 14px 4px 14px}
+.ia-bubble.assistant{background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:14px 14px 14px 4px}
+.ia-bubble.error{background:var(--red-dim);border:1px solid var(--red);color:var(--red)}
+.ia-bubble.loading{color:var(--text-muted);font-style:italic}
+.ia-avatar{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;background:var(--surface3);align-self:flex-end}
+
+/* ── CHAT FLUTUANTE IA ── */
+#iaFloatBtn{position:fixed;bottom:24px;right:24px;width:56px;height:56px;border-radius:50%;background:var(--accent);border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:24px;box-shadow:0 4px 20px rgba(56,189,248,.45);z-index:8900;transition:transform .2s,box-shadow .2s;color:#fff}
+#iaFloatBtn:hover{transform:scale(1.1);box-shadow:0 6px 28px rgba(56,189,248,.65)}
+#iaFloatBtn .ia-notif{position:absolute;top:4px;right:4px;width:10px;height:10px;background:var(--green);border-radius:50%;border:2px solid var(--bg);display:none}
+#iaFloatWin{position:fixed;bottom:92px;right:24px;width:380px;max-width:calc(100vw - 48px);height:520px;max-height:calc(100vh - 120px);background:var(--surface);border:1px solid var(--border2);border-radius:var(--radius-lg);display:none;flex-direction:column;box-shadow:0 16px 48px rgba(0,0,0,.55);z-index:8900;overflow:hidden;animation:ia-pop .2s cubic-bezier(.4,0,.2,1)}
+#iaFloatWin.open{display:flex}
+@keyframes ia-pop{from{opacity:0;transform:translateY(16px) scale(.97)}to{opacity:1;transform:translateY(0) scale(1)}}
+#iaFloatWin .ia-win-header{display:flex;align-items:center;gap:10px;padding:12px 16px;border-bottom:1px solid var(--border);flex-shrink:0;background:var(--surface2)}
+#iaFloatWin .ia-win-title{flex:1;font-size:14px;font-weight:600}
+#iaFloatWin .ia-win-sub{font-size:11px;color:var(--text-muted);font-weight:400}
+#iaFloatWin .ia-win-msgs{flex:1;overflow-y:auto;padding:14px 12px;display:flex;flex-direction:column;gap:10px}
+#iaFloatWin .ia-win-footer{flex-shrink:0;padding:10px 12px;border-top:1px solid var(--border);display:flex;gap:8px;align-items:flex-end;background:var(--surface2)}
+#iaFloatWin .ia-win-footer textarea{flex:1;resize:none;min-height:38px;max-height:100px;font-family:inherit;font-size:13px;padding:8px 12px;background:var(--surface3);border:1px solid var(--border2);border-radius:var(--radius);color:var(--text);outline:none;transition:border-color .15s}
+#iaFloatWin .ia-win-footer textarea:focus{border-color:var(--accent)}
+#iaFloatWin .ia-win-powered{font-size:10px;color:var(--text-muted);text-align:center;padding:4px 12px 6px;flex-shrink:0}
+@media(max-width:480px){#iaFloatWin{right:12px;bottom:84px;width:calc(100vw - 24px)}#iaFloatBtn{right:12px;bottom:12px}}
 
 /* ── MISC ── */
 .tab-warning{display:none;position:fixed;top:0;left:0;right:0;z-index:99999;background:var(--yellow);color:#0e0800;padding:10px 20px;text-align:center;font-size:13px;font-weight:600}
@@ -631,7 +645,6 @@ hr.divider{border:none;border-top:1px solid var(--border);margin:30px 0}
   .modal-box.edit-size{max-height:96vh}
   .toolbar{flex-wrap:wrap;gap:8px}
   .rel-menu-wrap{margin-bottom:8px}
-  .pin-box{border-radius:var(--radius-lg);padding:28px 20px}
   .btn{min-height:38px}
   .form-section{padding:14px}
   .resumo-box{grid-template-columns:1fr 1fr!important}
@@ -641,7 +654,6 @@ hr.divider{border:none;border-top:1px solid var(--border);margin:30px 0}
 @media(max-width:400px){
   .grid-stats{grid-template-columns:1fr!important}
   .fin-cards{grid-template-columns:1fr!important}
-  .pin-pad{max-width:210px}
   .content{padding:10px}
 }
 
@@ -720,34 +732,6 @@ hr.divider{border:none;border-top:1px solid var(--border);margin:30px 0}
 
 <div class="tab-warning" id="tabWarning">⚠️ Este sistema já está aberto em outra aba. Para evitar conflitos nos dados, feche as outras abas antes de usar esta.</div>
 
-<!-- ══ PIN SCREEN ══ -->
-<div id="pinScreen" style="display:none">
-  <div class="pin-box">
-    <div class="pin-brand">ASS<span>ENT</span></div>
-    <div class="pin-subtitle" id="pinSubtitle">Digite seu PIN para entrar</div>
-    <div class="pin-dots" id="pinDots">
-      <div class="pin-dot" id="pd0"></div>
-      <div class="pin-dot" id="pd1"></div>
-      <div class="pin-dot" id="pd2"></div>
-      <div class="pin-dot" id="pd3"></div>
-    </div>
-    <div class="pin-msg" id="pinMsg"></div>
-    <div class="pin-pad">
-      <div class="pin-key" onclick="pinKey('1')">1</div>
-      <div class="pin-key" onclick="pinKey('2')">2</div>
-      <div class="pin-key" onclick="pinKey('3')">3</div>
-      <div class="pin-key" onclick="pinKey('4')">4</div>
-      <div class="pin-key" onclick="pinKey('5')">5</div>
-      <div class="pin-key" onclick="pinKey('6')">6</div>
-      <div class="pin-key" onclick="pinKey('7')">7</div>
-      <div class="pin-key" onclick="pinKey('8')">8</div>
-      <div class="pin-key" onclick="pinKey('9')">9</div>
-      <div class="pin-key zero" onclick="pinKey('0')">0</div>
-      <div class="pin-key del" onclick="pinDel()">⌫</div>
-    </div>
-  </div>
-</div>
-
 <div class="app">
   <div class="sidebar" id="sidebar">
     <div class="logo">
@@ -782,6 +766,7 @@ hr.divider{border:none;border-top:1px solid var(--border);margin:30px 0}
       <!-- SISTEMA -->
       <div class="nav-label">Sistema</div>
       <button class="nav-btn"        data-tip="Atalhos"      onclick="showPage('atalhos',this)"><span class="icon">⌨️</span><span class="label">Atalhos</span></button>
+      <button class="nav-btn"        data-tip="Assistente IA" onclick="iaToggleFloat()"><span class="icon">🤖</span><span class="label">Assistente IA</span></button>
       <button class="nav-btn"        data-tip="Vendedores"   onclick="showPage('vendedores',this)"><span class="icon">🧑‍💼</span><span class="label">Vendedores</span></button>
       <button class="nav-btn"        data-tip="Configurações" onclick="showPage('configuracoes',this)"><span class="icon">⚙️</span><span class="label">Configurações</span></button>
       <div class="nav-divider"></div>
@@ -1323,6 +1308,7 @@ hr.divider{border:none;border-top:1px solid var(--border);margin:30px 0}
         </div>
       </div>
 
+      <!-- ══ ASSISTENTE IA ══ -->
       <!-- ══ CONFIGURAÇÕES ══ -->
       <div id="configuracoes" class="page">
         <div class="config-section">
@@ -1374,12 +1360,22 @@ hr.divider{border:none;border-top:1px solid var(--border);margin:30px 0}
         </div>
 
         <div class="config-section">
-          <div class="config-section-title">🔐 PIN de acesso</div>
-          <div style="font-size:13px;color:var(--text-muted);margin-bottom:14px">O PIN é solicitado toda vez que o sistema é aberto. Salvo localmente neste dispositivo.</div>
-          <div id="pinConfigStatus" style="margin-bottom:12px"></div>
-          <div style="display:flex;gap:8px;flex-wrap:wrap">
-            <button class="btn btn-primary btn-sm" onclick="abrirDefinirPin()">🔐 Definir / alterar PIN</button>
-            <button class="btn btn-danger btn-sm" id="btnRemoverPin" style="display:none" onclick="removerPin()">🗑️ Remover PIN</button>
+          <div class="config-section-title">🤖 Assistente IA <span style="font-size:11px;font-weight:400;color:var(--green)">· Powered by Google Gemini (gratuito)</span></div>
+          <div id="iaKeyStatus" style="display:flex;align-items:center;gap:10px;padding:12px 14px;background:var(--surface3);border:1px solid var(--border2);border-radius:var(--radius);margin-bottom:14px">
+            <span id="iaKeyStatusDot" style="width:10px;height:10px;border-radius:50%;background:var(--red);flex-shrink:0"></span>
+            <span id="iaKeyStatusTxt" style="font-size:13px;color:var(--text-dim)">Verificando…</span>
+          </div>
+          <div class="form-group">
+            <label>API Key do Google Gemini <span style="font-size:11px;color:var(--accent);font-weight:400">· salva para todos os usuários</span></label>
+            <div style="display:flex;gap:8px">
+              <input id="cfgAnthropicKeyInput" type="password" placeholder="AIza…"
+                style="font-family:'JetBrains Mono',monospace;font-size:12px;flex:1">
+              <button class="btn btn-primary btn-sm" onclick="salvarIaKey()" style="flex-shrink:0;white-space:nowrap">💾 Salvar</button>
+            </div>
+            <span style="font-size:11px;color:var(--text-muted);margin-top:5px;display:block">
+              Obtenha sua chave gratuita em <a href="https://aistudio.google.com/app/apikey" target="_blank" style="color:var(--accent)">aistudio.google.com/app/apikey</a>
+              · A chave fica no Firestore e funciona para todos os usuários com licença ativa
+            </span>
           </div>
         </div>
 
@@ -2216,6 +2212,8 @@ function loadConfigUI(){
   document.getElementById('cfgEmpresaTel').value=config.empresaTel||''
   document.getElementById('cfgMoeda').value=config.moeda||'R$'
   document.getElementById('cfgEstoqueMin').value=config.estoqueMin!==undefined?config.estoqueMin:3
+  // Atualiza painel de status da IA
+  _atualizarStatusIaKey()
   applyConfig()
   // lista de alertas de estoque
   const min=config.estoqueMin!==undefined?config.estoqueMin:3
@@ -2288,7 +2286,7 @@ function showPage(p,btn){
   document.getElementById(p).classList.add('active')
   document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'))
   if(btn)btn.classList.add('active')
-  const m={dashboard:['Dashboard','Visão geral do sistema'],clientes:['Clientes','Gerenciar cadastros'],produtos:['Produtos','Estoque e preços'],servicos:['Serviços','Serviços sem controle de estoque'],entrada:['Entrada de Estoque','Adicionar unidades ao estoque'],vendas:['Vendas','Registrar e acompanhar'],fiado:['Fiado / A Receber','Contas a receber e crédito de clientes'],caixa:['Caixa Diário','Controle financeiro do dia'],despesas:['Despesas','Controle de gastos e vencimentos'],fornecedores:['Fornecedores','Cadastro de fornecedores'],vendedores:['Vendedores','Equipe de vendas'],atalhos:['Atalhos de Teclado','Visualize e edite os atalhos do sistema'],relatorios:['Relatórios','Análise por período'],configuracoes:['Configurações','Empresa, moeda e preferências do sistema']}
+  const m={dashboard:['Dashboard','Visão geral do sistema'],clientes:['Clientes','Gerenciar cadastros'],produtos:['Produtos','Estoque e preços'],servicos:['Serviços','Serviços sem controle de estoque'],entrada:['Entrada de Estoque','Adicionar unidades ao estoque'],vendas:['Vendas','Registrar e acompanhar'],fiado:['Fiado / A Receber','Contas a receber e crédito de clientes'],caixa:['Caixa Diário','Controle financeiro do dia'],despesas:['Despesas','Controle de gastos e vencimentos'],fornecedores:['Fornecedores','Cadastro de fornecedores'],vendedores:['Vendedores','Equipe de vendas'],ia:['Assistente IA','Análise e dúvidas sobre seu negócio'],atalhos:['Atalhos de Teclado','Visualize e edite os atalhos do sistema'],relatorios:['Relatórios','Análise por período'],configuracoes:['Configurações','Empresa, moeda e preferências do sistema']}
   document.getElementById('topbarTitle').textContent=(m[p]||[p,''])[0]
   document.getElementById('topbarSub').textContent=(m[p]||['',p])[1]
   if(p==='relatorios')renderRelatorio()
@@ -4968,7 +4966,7 @@ function renderVendedores(){
   const f=vendedores.map((v,i)=>({...v,_i:i})).filter(v=>v.nome.toLowerCase().includes(q)||(v.email||'').toLowerCase().includes(q))
   const cnt=document.getElementById('cntVendedores');if(cnt)cnt.textContent=f.length
   const b=document.getElementById('vendedoresBody');if(!b)return
-  if(!f.length){b.innerHTML='<tr><td colspan="6"><div class="empty-state"><span class="empty-icon">🧑‍💼</span>Nenhum vendedor cadastrado</div></td></tr>';return}
+  if(!f.length){b.innerHTML='<tr><td colspan="6"><div class="empty-state"><span class="empty-icon">💼</span>Nenhum vendedor cadastrado</div></td></tr>';return}
   b.innerHTML=f.map(v=>{
     const i=v._i
     const totalVendas=vendas.filter(vv=>vv.vendedor===v.nome).length
@@ -5040,7 +5038,7 @@ function renderRelVendedores(pv,sumEl,titleEl,countEl,contentEl){
       (comissao>0?'<div class="rel-sum-card"><div class="rel-sum-label">Comissão ('+vCad.comissao+'%)</div><div class="rel-sum-value" style="color:var(--orange)">'+brl(comissao)+'</div></div>':'')
     titleEl.textContent='Vendas de '+escHtml(vNome)
     countEl.textContent=vendaVend.length+' venda'+(vendaVend.length!==1?'s':'')
-    if(!vendaVend.length){contentEl.innerHTML='<div class="empty-state"><span class="empty-icon">🧑‍💼</span>Nenhuma venda no período para este vendedor</div>';return}
+    if(!vendaVend.length){contentEl.innerHTML='<div class="empty-state"><span class="empty-icon">💼</span>Nenhuma venda no período para este vendedor</div>';return}
     const sorted=[...vendaVend].sort((a,b)=>b.data>a.data?1:-1)
     contentEl.innerHTML='<table><thead><tr><th>ID</th><th>Data</th><th>Cliente</th><th>Pagamento</th><th>Itens</th><th>Total</th><th>Lucro est.</th></tr></thead><tbody>'+
       sorted.map(v=>{
@@ -5083,7 +5081,7 @@ function renderRelVendedores(pv,sumEl,titleEl,countEl,contentEl){
     (comissaoGeral>0?'<div class="rel-sum-card"><div class="rel-sum-label">Comissões</div><div class="rel-sum-value" style="color:var(--yellow)">'+brl(comissaoGeral)+'</div></div>':'')
   titleEl.textContent='Desempenho por vendedor'
   countEl.textContent=lista.reduce((t,x)=>t+x.qtd,0)+' venda(s)'
-  if(!lista.length){contentEl.innerHTML='<div class="empty-state"><span class="empty-icon">🧑‍💼</span>Nenhuma venda no período</div>';return}
+  if(!lista.length){contentEl.innerHTML='<div class="empty-state"><span class="empty-icon">💼</span>Nenhuma venda no período</div>';return}
   const maxTotal=lista[0].total||1
   contentEl.innerHTML='<table><thead><tr><th>#</th><th>Vendedor</th><th>Nº Vendas</th><th>Faturamento</th><th>Participação</th><th>Lucro est.</th><th>Comissão</th><th>Ticket médio</th></tr></thead><tbody>'+
     lista.map((x,pos)=>{
@@ -5923,209 +5921,6 @@ document.getElementById('modalNovaCategoria')?.addEventListener('click',e=>{
   if(e.target===document.getElementById('modalNovaCategoria'))closeModal('modalNovaCategoria')
 })
 
-/* ══ SISTEMA DE PIN ══ */
-const PIN_KEY='assent_pin_hash'
-const PIN_LEN=4
-
-// Hash simples (não criptográfico, mas evita PIN em texto puro no localStorage)
-function hashPin(pin){
-  let h=0x811c9dc5
-  for(let i=0;i<pin.length;i++){h^=pin.charCodeAt(i);h=(h*0x01000193)>>>0}
-  return h.toString(16).padStart(8,'0')+'_'+pin.length
-}
-
-function pinSalvo(){try{return!!localStorage.getItem(PIN_KEY)}catch(e){return false}}
-function verificarHash(pin){try{return localStorage.getItem(PIN_KEY)===hashPin(pin)}catch(e){return false}}
-function salvarPin(pin){try{localStorage.setItem(PIN_KEY,hashPin(pin))}catch(e){}}
-function apagarPin(){try{localStorage.removeItem(PIN_KEY)}catch(e){}}
-
-// ── Estado da tela de PIN ──
-let _pinBuffer=''
-let _pinModo='entrar'       // 'entrar' | 'criar' | 'confirmar' | 'alterar_atual' | 'alterar_novo' | 'alterar_conf'
-let _pinNovo=''             // armazena o novo PIN durante confirmação
-
-function initPin(){
-  if(!pinSalvo()){
-    // Primeira vez — cria PIN
-    _pinModo='criar'
-    mostrarPinScreen('Crie um PIN de 4 dígitos')
-  } else {
-    // Já tem PIN — pede para entrar
-    _pinModo='entrar'
-    mostrarPinScreen('Digite seu PIN para entrar')
-  }
-}
-
-function mostrarPinScreen(msg){
-  _pinBuffer=''
-  atualizarDots()
-  document.getElementById('pinMsg').textContent=''
-  document.getElementById('pinMsg').className='pin-msg'
-  document.getElementById('pinSubtitle').textContent=msg
-  document.getElementById('pinScreen').style.display='flex'
-}
-
-function esconderPinScreen(){
-  document.getElementById('pinScreen').style.display='none'
-}
-
-function atualizarDots(){
-  for(let i=0;i<PIN_LEN;i++){
-    const d=document.getElementById('pd'+i)
-    if(d){
-      d.className='pin-dot'+(i<_pinBuffer.length?' filled':'')
-    }
-  }
-}
-
-function pinMsg(txt,tipo){
-  const el=document.getElementById('pinMsg')
-  el.textContent=txt
-  el.className='pin-msg'+(tipo?' '+tipo:'')
-}
-
-function pinKey(n){
-  if(_pinBuffer.length>=PIN_LEN) return
-  _pinBuffer+=n
-  atualizarDots()
-  if(_pinBuffer.length===PIN_LEN) setTimeout(processarPin,120)
-}
-
-function pinDel(){
-  if(!_pinBuffer.length) return
-  _pinBuffer=_pinBuffer.slice(0,-1)
-  atualizarDots()
-  pinMsg('')
-}
-
-function processarPin(){
-  const pin=_pinBuffer
-
-  if(_pinModo==='entrar'){
-    if(verificarHash(pin)){
-      pinMsg('✓ Bem-vindo!','success')
-      setTimeout(()=>{esconderPinScreen();atualizarStatusPin()},300)
-    } else {
-      pinMsg('PIN incorreto. Tente novamente.','error')
-      animarErro()
-      setTimeout(()=>{_pinBuffer='';atualizarDots();pinMsg('')},800)
-    }
-
-  } else if(_pinModo==='criar'){
-    _pinNovo=pin
-    _pinModo='confirmar'
-    _pinBuffer=''
-    atualizarDots()
-    pinMsg('')
-    document.getElementById('pinSubtitle').textContent='Confirme o PIN'
-
-  } else if(_pinModo==='confirmar'){
-    if(pin===_pinNovo){
-      salvarPin(pin)
-      pinMsg('PIN criado com sucesso!','success')
-      setTimeout(()=>{esconderPinScreen();atualizarStatusPin()},500)
-    } else {
-      pinMsg('Os PINs não coincidem. Recomeçando…','error')
-      animarErro()
-      setTimeout(()=>{
-        _pinNovo=''
-        _pinModo='criar'
-        _pinBuffer=''
-        atualizarDots()
-        pinMsg('')
-        document.getElementById('pinSubtitle').textContent='Crie um PIN de 4 dígitos'
-      },1000)
-    }
-
-  } else if(_pinModo==='alterar_atual'){
-    if(verificarHash(pin)){
-      _pinModo='alterar_novo'
-      _pinBuffer=''
-      atualizarDots()
-      pinMsg('')
-      document.getElementById('pinSubtitle').textContent='Digite o novo PIN'
-    } else {
-      pinMsg('PIN atual incorreto.','error')
-      animarErro()
-      setTimeout(()=>{_pinBuffer='';atualizarDots();pinMsg('')},800)
-    }
-
-  } else if(_pinModo==='alterar_novo'){
-    _pinNovo=pin
-    _pinModo='alterar_conf'
-    _pinBuffer=''
-    atualizarDots()
-    pinMsg('')
-    document.getElementById('pinSubtitle').textContent='Confirme o novo PIN'
-
-  } else if(_pinModo==='alterar_conf'){
-    if(pin===_pinNovo){
-      salvarPin(pin)
-      pinMsg('PIN alterado com sucesso!','success')
-      setTimeout(()=>{esconderPinScreen();atualizarStatusPin()},500)
-    } else {
-      pinMsg('Os PINs não coincidem. Tente novamente.','error')
-      animarErro()
-      setTimeout(()=>{
-        _pinModo='alterar_novo'
-        _pinNovo=''
-        _pinBuffer=''
-        atualizarDots()
-        pinMsg('')
-        document.getElementById('pinSubtitle').textContent='Digite o novo PIN'
-      },1000)
-    }
-  }
-}
-
-function animarErro(){
-  const dots=document.getElementById('pinDots')
-  if(!dots) return
-  dots.querySelectorAll('.pin-dot').forEach(d=>d.classList.add('error'))
-  setTimeout(()=>dots.querySelectorAll('.pin-dot').forEach(d=>d.classList.remove('error')),400)
-}
-
-// Suporte ao teclado físico na tela de PIN
-document.addEventListener('keydown',e=>{
-  const ps=document.getElementById('pinScreen')
-  if(!ps||ps.style.display==='none') return
-  if(e.key>='0'&&e.key<='9') pinKey(e.key)
-  else if(e.key==='Backspace') pinDel()
-})
-
-// ── Config: gerenciar PIN ──
-function atualizarStatusPin(){
-  const status=document.getElementById('pinConfigStatus')
-  const btnRem=document.getElementById('btnRemoverPin')
-  if(!status) return
-  if(pinSalvo()){
-    status.innerHTML='<span style="color:var(--green);font-size:13px">✅ PIN ativo neste dispositivo</span>'
-    if(btnRem) btnRem.style.display='inline-flex'
-  } else {
-    status.innerHTML='<span style="color:var(--text-muted);font-size:13px">⚠️ Nenhum PIN configurado — sistema aberto sem proteção</span>'
-    if(btnRem) btnRem.style.display='none'
-  }
-}
-
-function abrirDefinirPin(){
-  if(pinSalvo()){
-    // Já tem PIN — pede o atual primeiro
-    _pinModo='alterar_atual'
-    mostrarPinScreen('Digite o PIN atual')
-  } else {
-    _pinModo='criar'
-    mostrarPinScreen('Crie um PIN de 4 dígitos')
-  }
-}
-
-function removerPin(){
-  showConfirm('Remover o PIN? O sistema ficará acessível sem senha neste dispositivo.',()=>{
-    apagarPin()
-    toast('🔓 PIN removido.','info')
-    atualizarStatusPin()
-  },'Remover PIN','Remover','btn-danger')
-}
-
 /* ═══ ELECTRON BRIDGE ═══ */
 // Quando rodando no Electron, usa diálogos nativos e IPC para atualização
 const isElectron=()=>!!(window.electronAPI?.isElectron)
@@ -6197,6 +5992,180 @@ if('serviceWorker' in navigator){
   })
 }
 
+/* ══ ASSISTENTE IA ══ */
+let _iaMensagens = [] // histórico da conversa
+
+function iaContexto(){
+  // Monta um resumo dos dados do sistema para dar contexto ao Claude
+  const hj = hoje()
+  const vendasMes = vendas.filter(v => v.data && v.data.slice(0,7) === hj.slice(0,7))
+  const faturMes = vendasMes.reduce((t,v) => t+(v.total||0), 0)
+  const despPend = despesas.filter(d => !d.paga)
+  const fiadoPend = vendas.filter(v => v.fiado && !v.fiadoRecebido)
+  const estoqueMin = config.estoqueMin || 3
+  const semEstoque = produtos.filter(p => p.estoque <= 0).length
+  const baixoEstoque = produtos.filter(p => p.estoque > 0 && p.estoque <= estoqueMin).length
+
+  return `Você é o assistente do sistema de gestão ASSENT. Responda em português, de forma clara e direta.
+Ajude o usuário com análises do negócio, dúvidas sobre o sistema, sugestões e interpretação de dados.
+
+=== RESUMO DO NEGÓCIO (hoje: ${hj}) ===
+Empresa: ${config.empresaNome || 'Não configurada'}
+Clientes cadastrados: ${clientes.length}
+Produtos: ${produtos.length} (${semEstoque} sem estoque, ${baixoEstoque} abaixo do mínimo)
+Serviços: ${servicos.length}
+Vendas este mês: ${vendasMes.length} → ${brl(faturMes)}
+Total de vendas no sistema: ${vendas.length}
+Despesas pendentes: ${despPend.length} → ${brl(despPend.reduce((t,d)=>t+d.valor,0))}
+Fiado em aberto: ${fiadoPend.length} → ${brl(fiadoPend.reduce((t,v)=>t+(v.total||0),0))}
+Vendedores: ${vendedores.length}
+Fornecedores: ${fornecedores.length}
+
+Quando o usuário perguntar sobre dados específicos (ex: "qual meu produto mais vendido"), use os dados acima para responder. Se precisar de mais detalhes que não estão aqui, diga que o usuário pode verificar nos relatórios do sistema.`
+}
+
+/* ══ ASSISTENTE IA FLUTUANTE ══ */
+let _iaAberto = false
+
+function _atualizarStatusIaKey(){
+  const dot = document.getElementById('iaKeyStatusDot')
+  const txt = document.getElementById('iaKeyStatusTxt')
+  if(!dot || !txt) return
+  if(window._anthropicKey){
+    dot.style.background = 'var(--green)'
+    txt.textContent = '✅ Chave do Gemini configurada — Assistente IA ativo para todos os usuários'
+  } else {
+    dot.style.background = 'var(--red)'
+    txt.textContent = '❌ Chave não configurada — Assistente IA desativado'
+  }
+}
+
+async function salvarIaKey(){
+  const input = document.getElementById('cfgAnthropicKeyInput')
+  const key = (input?.value || '').trim()
+  if(!key){ toast('Digite a chave antes de salvar.','error'); return }
+  if(!key.startsWith('AIza')){ toast('Chave inválida. A chave do Gemini começa com AIza','error'); return }
+  try {
+    await window._fbSetDoc('config', 'sistema', { anthropicKey: key }, true)
+    window._anthropicKey = key
+    input.value = ''
+    _atualizarStatusIaKey()
+    toast('✅ Chave do Gemini salva para todos os usuários!','success')
+  } catch(e) {
+    toast('Erro ao salvar chave: ' + e.message, 'error')
+  }
+}
+
+function iaToggleFloat(){
+  const win = document.getElementById('iaFloatWin')
+  _iaAberto = !_iaAberto
+  win.classList.toggle('open', _iaAberto)
+  if(_iaAberto){
+    const msgs = document.getElementById('iaMensagensFloat')
+    if(msgs && !msgs.children.length) iaLimparChat()
+    setTimeout(()=>{ const t=document.getElementById('iaInputFloat'); if(t) t.focus() }, 150)
+  }
+}
+
+function iaFecharFloat(){
+  _iaAberto = false
+  document.getElementById('iaFloatWin').classList.remove('open')
+}
+
+function iaAdicionarMensagem(papel, texto, tipo){
+  const el = document.getElementById('iaMensagensFloat')
+  if(!el) return
+  const isUser = papel === 'user'
+  const div = document.createElement('div')
+  div.className = 'ia-msg ' + papel
+  div.innerHTML =
+    '<div class="ia-avatar">' + (isUser ? '👤' : '🤖') + '</div>' +
+    '<div class="ia-bubble ' + (tipo || papel) + '">' + escHtml(texto).replace(/\n/g,'<br>') + '</div>'
+  el.appendChild(div)
+  el.scrollTop = el.scrollHeight
+  return div
+}
+
+function iaAdicionarLoading(){
+  const el = document.getElementById('iaMensagensFloat')
+  if(!el) return null
+  const div = document.createElement('div')
+  div.className = 'ia-msg assistant'
+  div.id = 'iaLoadingMsg'
+  div.innerHTML = '<div class="ia-avatar">🤖</div><div class="ia-bubble loading">Pensando…</div>'
+  el.appendChild(div)
+  el.scrollTop = el.scrollHeight
+  return div
+}
+
+async function iaEnviar(){
+  const input = document.getElementById('iaInputFloat')
+  const btn = document.getElementById('iaBtnEnviarFloat')
+  const texto = (input?.value || '').trim()
+  if(!texto) return
+
+  const apiKey = window._anthropicKey || ''
+  if(!apiKey){
+    iaAdicionarMensagem('assistant', '⚠️ A chave de API da IA não está configurada. Acesse Configurações → Assistente IA para cadastrá-la (válido para todos os usuários).', 'error')
+    return
+  }
+
+  // Adiciona mensagem do usuário
+  iaAdicionarMensagem('user', texto)
+  _iaMensagens.push({ role: 'user', parts: [{ text: texto }] })
+  input.value = ''
+  input.style.height = 'auto'
+  btn.disabled = true
+  btn.textContent = '...'
+
+  const loading = iaAdicionarLoading()
+
+  try{
+    const response = await fetch(
+      'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=' + apiKey,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          system_instruction: { parts: [{ text: iaContexto() }] },
+          contents: _iaMensagens,
+          generationConfig: { maxOutputTokens: 1500, temperature: 0.7 }
+        })
+      }
+    )
+
+    const data = await response.json()
+    if(loading) loading.remove()
+
+    if(!response.ok){
+      const errMsg = data?.error?.message || 'Erro desconhecido'
+      iaAdicionarMensagem('assistant', '⚠️ ' + errMsg, 'error')
+      _iaMensagens.pop()
+    } else {
+      const resposta = data.candidates?.[0]?.content?.parts?.[0]?.text || '(sem resposta)'
+      iaAdicionarMensagem('assistant', resposta)
+      _iaMensagens.push({ role: 'model', parts: [{ text: resposta }] })
+    }
+  } catch(err){
+    if(loading) loading.remove()
+    iaAdicionarMensagem('assistant', '⚠️ Não foi possível conectar. Verifique sua internet.\n' + err.message, 'error')
+    _iaMensagens.pop()
+  }
+
+  btn.disabled = false
+  btn.textContent = 'Enviar'
+  document.getElementById('iaMensagensFloat').scrollTop = 99999
+}
+
+function iaLimparChat(){
+  _iaMensagens = []
+  const el = document.getElementById('iaMensagensFloat')
+  if(el) el.innerHTML = ''
+  iaAdicionarMensagem('assistant',
+    'Olá! Sou o assistente do ASSENT. Posso te ajudar com análises do seu negócio, dúvidas sobre o sistema ou interpretação dos seus dados.\n\nExemplos do que você pode me perguntar:\n• "Quais são meus produtos mais vendidos?"\n• "Tenho despesas vencidas?"\n• "Como funciona o relatório de DRE?"\n• "Quanto faturei esse mês?"'
+  )
+}
+
 /* ══ INIT ══ */
 function render(){
   loadCategorias()
@@ -6216,8 +6185,6 @@ function render(){
   else if(b2)toast('ℹ️ '+b2+' produto(s) abaixo do estoque mínimo ('+min+').','info')
   // Onboarding para novos usuários
   setTimeout(initOnboarding, 800)
-  // Atualiza status do PIN na config
-  setTimeout(atualizarStatusPin, 100)
 }
 /* ══ FIREBASE AUTH LOGIC ══ */
 function loginComEmail(){
@@ -6270,7 +6237,6 @@ function _iniciarApp(){
   document.getElementById('loginScreen').style.display='none'
   document.getElementById('tabWarning').style.display=''
   document.querySelector('.app').style.display='flex'
-  initPin()
   render()
 }
 
@@ -6355,6 +6321,40 @@ document.getElementById('tabWarning').style.display='none'
       <button class="btn btn-primary" onclick="confirmarNovaCategoria()">＋ Criar categoria</button>
     </div>
   </div>
+</div>
+
+<!-- ══ WIDGET FLUTUANTE ASSISTENTE IA ══ -->
+<button id="iaFloatBtn" onclick="iaToggleFloat()" title="Assistente IA">
+  🤖
+  <span class="ia-notif" id="iaNotif"></span>
+</button>
+
+<div id="iaFloatWin">
+  <!-- Header -->
+  <div class="ia-win-header">
+    <div style="width:32px;height:32px;border-radius:50%;background:var(--accent-dim);display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0">🤖</div>
+    <div class="ia-win-title">
+      Assistente ASSENT
+      <div class="ia-win-sub">Powered by Claude</div>
+    </div>
+    <button class="btn btn-ghost btn-sm" onclick="iaLimparChat()" title="Limpar conversa" style="padding:4px 8px;font-size:13px">🗑️</button>
+    <button class="btn btn-ghost btn-sm" onclick="iaFecharFloat()" title="Fechar" style="padding:4px 8px;font-size:13px">✕</button>
+  </div>
+
+  <!-- Mensagens -->
+  <div class="ia-win-msgs" id="iaMensagensFloat"></div>
+
+  <!-- Input -->
+  <div class="ia-win-footer">
+    <textarea id="iaInputFloat"
+      placeholder="Pergunte sobre vendas, estoque, clientes…"
+      rows="1"
+      onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();iaEnviar()}"
+      oninput="this.style.height='auto';this.style.height=Math.min(this.scrollHeight,100)+'px'"></textarea>
+    <button class="btn btn-primary" id="iaBtnEnviarFloat" onclick="iaEnviar()"
+      style="flex-shrink:0;height:38px;padding:0 14px;font-size:13px">↑</button>
+  </div>
+  <div class="ia-win-powered">Shift+Enter para nova linha · dados do sistema enviados como contexto</div>
 </div>
 
 </body>
