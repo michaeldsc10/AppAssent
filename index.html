@@ -766,8 +766,7 @@ hr.divider{border:none;border-top:1px solid var(--border);margin:30px 0}
       <!-- SISTEMA -->
       <div class="nav-label">Sistema</div>
       <button class="nav-btn"        data-tip="Atalhos"      onclick="showPage('atalhos',this)"><span class="icon">⌨️</span><span class="label">Atalhos</span></button>
-      <button class="nav-btn"        data-tip="Assistente IA" onclick="iaToggleFloat()"><span class="icon">🤖</span><span class="label">Assistente IA</span></button>
-      <button class="nav-btn"        data-tip="Vendedores"   onclick="showPage('vendedores',this)"><span class="icon">🧑‍💼</span><span class="label">Vendedores</span></button>
+      <button class="nav-btn"        data-tip="Vendedores"   onclick="showPage('vendedores',this)"><span class="icon">💼</span><span class="label">Vendedores</span></button>
       <button class="nav-btn"        data-tip="Configurações" onclick="showPage('configuracoes',this)"><span class="icon">⚙️</span><span class="label">Configurações</span></button>
       <div class="nav-divider"></div>
       <button class="nav-btn"        data-tip="Baixar backup"  onclick="exportarDados()"><span class="icon">⬇️</span><span class="label">Baixar backup</span></button>
@@ -1640,7 +1639,7 @@ hr.divider{border:none;border-top:1px solid var(--border);margin:30px 0}
             <button class="rel-tipo-btn" onclick="setRelTipo('despesas_periodo',this)">📋 Despesas</button>
             <button class="rel-tipo-btn" onclick="setRelTipo('compras_forn',this)">📥 Compras Fornec.</button>
             <button class="rel-tipo-btn" onclick="setRelTipo('pagamentos',this)">💳 Pagamentos</button>
-            <button class="rel-tipo-btn" onclick="setRelTipo('vendedores_rel',this)">🧑‍💼 Vendedores</button>
+            <button class="rel-tipo-btn" onclick="setRelTipo('vendedores_rel',this)">💼 Vendedores</button>
             <button class="rel-tipo-btn" onclick="setRelTipo('dre',this)">📊 DRE</button>
             <button class="rel-tipo-btn" onclick="setRelTipo('fiado_rel',this)">📒 Fiado</button>
           </div>
@@ -4966,7 +4965,7 @@ function renderVendedores(){
   const f=vendedores.map((v,i)=>({...v,_i:i})).filter(v=>v.nome.toLowerCase().includes(q)||(v.email||'').toLowerCase().includes(q))
   const cnt=document.getElementById('cntVendedores');if(cnt)cnt.textContent=f.length
   const b=document.getElementById('vendedoresBody');if(!b)return
-  if(!f.length){b.innerHTML='<tr><td colspan="6"><div class="empty-state"><span class="empty-icon">💼</span>Nenhum vendedor cadastrado</div></td></tr>';return}
+  if(!f.length){b.innerHTML='<tr><td colspan="6"><div class="empty-state"><span class="empty-icon">🧑‍💼</span>Nenhum vendedor cadastrado</div></td></tr>';return}
   b.innerHTML=f.map(v=>{
     const i=v._i
     const totalVendas=vendas.filter(vv=>vv.vendedor===v.nome).length
@@ -5081,7 +5080,7 @@ function renderRelVendedores(pv,sumEl,titleEl,countEl,contentEl){
     (comissaoGeral>0?'<div class="rel-sum-card"><div class="rel-sum-label">Comissões</div><div class="rel-sum-value" style="color:var(--yellow)">'+brl(comissaoGeral)+'</div></div>':'')
   titleEl.textContent='Desempenho por vendedor'
   countEl.textContent=lista.reduce((t,x)=>t+x.qtd,0)+' venda(s)'
-  if(!lista.length){contentEl.innerHTML='<div class="empty-state"><span class="empty-icon">💼</span>Nenhuma venda no período</div>';return}
+  if(!lista.length){contentEl.innerHTML='<div class="empty-state"><span class="empty-icon">🧑‍💼</span>Nenhuma venda no período</div>';return}
   const maxTotal=lista[0].total||1
   contentEl.innerHTML='<table><thead><tr><th>#</th><th>Vendedor</th><th>Nº Vendas</th><th>Faturamento</th><th>Participação</th><th>Lucro est.</th><th>Comissão</th><th>Ticket médio</th></tr></thead><tbody>'+
     lista.map((x,pos)=>{
