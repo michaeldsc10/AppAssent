@@ -2672,7 +2672,7 @@ thead th{color:var(--text-dim)!important;font-weight:700}
 const brl=v=>'R$ '+Number(v||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})
 const fmtCPF=v=>(!v||v.length!==11)?v||'—':v.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/,'$1.$2.$3-$4')
 const fmtData=d=>d?new Date(d+'T00:00:00').toLocaleDateString('pt-BR'):'—'
-const hoje=()=>new Date().toISOString().split('T')[0]
+const hoje=()=>{const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')}
 const escHtml=s=>String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')
 const parseNum=(v,fb=0,mn=null,mx=null)=>{const n=parseFloat(String(v).replace(',','.'));if(isNaN(n)||!isFinite(n))return fb;if(mn!==null&&n<mn)return mn;if(mx!==null&&n>mx)return mx;return n}
 const parseInt2=(v,fb=0,mn=null)=>{const n=parseInt(String(v),10);if(isNaN(n))return fb;if(mn!==null&&n<mn)return mn;return n}
@@ -5477,7 +5477,6 @@ function renderDashDespesas(){
 
 /* ══ RELATÓRIO: DESPESAS ══ */
 function _filtrarDespesasPorPeriodo(lista){
-  // Aplica o filtro de período (por vencimento) igual ao das vendas
   if(_relPeriod==='todos')return lista
   const hj=hoje(),agora=new Date()
   return lista.filter(d=>{
