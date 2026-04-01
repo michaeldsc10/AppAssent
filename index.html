@@ -6456,8 +6456,8 @@ document.getElementById('modalUpdate')?.addEventListener('click',e=>{
 const TUTORIAL_PASSOS=[
   {
     emoji:'👋',titulo:'Bem-vindo ao ASSENT!',
-    corpo:`<p style="font-size:14px;line-height:1.7;color:var(--text-dim)">O ASSENT é um sistema de gestão completo que roda diretamente no seu navegador, sem instalação e sem internet.</p>
-    <p style="font-size:14px;line-height:1.7;color:var(--text-dim);margin-top:10px">Seus dados ficam salvos no próprio navegador. Use o botão <strong>Baixar backup</strong> regularmente para guardar uma cópia de segurança.</p>
+    corpo:`<p style="font-size:14px;line-height:1.7;color:var(--text-dim)">O ASSENT é um sistema de gestão completo baseado na nuvem. Acesse de qualquer dispositivo em <strong>app.assentagencia.com.br</strong> — sem instalação necessária.</p>
+    <p style="font-size:14px;line-height:1.7;color:var(--text-dim);margin-top:10px">Seus dados ficam salvos com segurança na nuvem e sincronizados em tempo real. Use o botão <strong>Baixar backup</strong> para guardar uma cópia local sempre que quiser.</p>
     <div style="background:var(--accent-dim);border:1px solid var(--accent);border-radius:var(--radius);padding:14px 16px;margin-top:16px;font-size:13px;color:var(--text-dim)">
       💡 Este tutorial vai te guiar pelos primeiros passos. Você pode abri-lo novamente a qualquer momento clicando em <strong>🎓 Tutorial</strong> na barra lateral.
     </div>`
@@ -6509,7 +6509,7 @@ const TUTORIAL_PASSOS=[
     <div style="display:flex;flex-direction:column;gap:8px;margin-top:14px">
       <div style="display:flex;align-items:flex-start;gap:10px;padding:10px 14px;background:var(--surface3);border-radius:var(--radius)">
         <span style="font-size:18px;flex-shrink:0">📋</span>
-        <div><strong>CPF, telefone e Instagram</strong><br><span style="font-size:12px;color:var(--text-muted)">Todos opcionais — só nome é obrigatório</span></div>
+        <div><strong>CPF, telefone e Instagram</strong><br><span style="font-size:12px;color:var(--text-muted)">Nome, CPF e telefone são obrigatórios</span></div>
       </div>
       <div style="display:flex;align-items:flex-start;gap:10px;padding:10px 14px;background:var(--surface3);border-radius:var(--radius)">
         <span style="font-size:18px;flex-shrink:0">📒</span>
@@ -6551,11 +6551,11 @@ const TUTORIAL_PASSOS=[
       </div>
       <div style="display:flex;align-items:flex-start;gap:10px;padding:10px 14px;background:var(--surface3);border-radius:var(--radius)">
         <span style="font-size:18px;flex-shrink:0">📋</span>
-        <div><strong>11 tipos de relatórios</strong><br><span style="font-size:12px;color:var(--text-muted)">Vendas, DRE, fiado, fornecedores, vendedores, pagamentos e mais</span></div>
+        <div><strong>12 tipos de relatórios</strong><br><span style="font-size:12px;color:var(--text-muted)">Vendas, DRE, fiado, fornecedores, vendedores, pagamentos e mais</span></div>
       </div>
       <div style="display:flex;align-items:flex-start;gap:10px;padding:10px 14px;background:var(--surface3);border-radius:var(--radius)">
         <span style="font-size:18px;flex-shrink:0">💾</span>
-        <div><strong>Backup regular</strong><br><span style="font-size:12px;color:var(--text-muted)">Use <strong>Baixar backup</strong> na barra lateral para exportar todos os dados. O auto-backup salva a cada 10 vendas</span></div>
+        <div><strong>Backup local</strong><br><span style="font-size:12px;color:var(--text-muted)">Seus dados ficam na nuvem, mas você pode exportar uma cópia local com <strong>Baixar backup</strong> na barra lateral a qualquer momento</span></div>
       </div>
     </div>
     <div style="margin-top:16px;padding:12px 16px;background:var(--green-dim);border:1px solid var(--green);border-radius:var(--radius);font-size:13px;color:var(--text-dim)">
@@ -6828,6 +6828,13 @@ function _processarBackupJson(texto){
       lsSet('entradas',entradas);lsSet('caixas',caixas);lsSet('servicos',servicos)
       lsSet('despesas',despesas);lsSet('fornecedores',fornecedores);lsSet('vendedores',vendedores)
       lsSet('config',config)
+      // Atualiza o contador de ID de vendas com o maior número existente
+      const maxId=vendas.reduce((max,v)=>{
+        if(!v.id||typeof v.id!=='string')return max
+        const n=parseInt(v.id.replace(/^V/i,''))||0
+        return Math.max(max,n)
+      },0)
+      try{localStorage.setItem('saleIdCnt',String(maxId))}catch(e){}
       _syncFirestore() // ← sobe o backup restaurado para o Firestore (imediato, não debounce)
       toast('✅ Backup restaurado com sucesso!');render()
     },'Restaurar backup','Restaurar','btn-warning')
