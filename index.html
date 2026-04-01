@@ -1425,6 +1425,16 @@ thead th{color:var(--text-dim)!important;font-weight:700}
             </div>
           </div>
         </div>
+        <!-- Alerta de agenda -->
+        <div id="agendaAlert" style="display:none;margin-bottom:16px">
+          <div style="background:var(--accent-dim);border:1px solid var(--accent);border-radius:var(--radius-lg);padding:12px 18px;cursor:pointer" onclick="showPage('agenda',document.querySelector('[data-tip=Agenda]'))">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">
+              <span style="font-size:16px">📅</span>
+              <span style="font-size:13px;color:var(--accent);font-weight:600" id="agendaAlertTitle"></span>
+            </div>
+            <div id="agendaAlertList" style="display:flex;flex-direction:column;gap:4px;padding-left:26px"></div>
+          </div>
+        </div>
 
         <div class="grid-stats">
           <div class="stat-card c-blue"><div class="stat-header"><div class="stat-icon">👥</div><div class="stat-label">Clientes</div></div><div class="stat-value" id="statClientes">0</div></div>
@@ -3109,6 +3119,7 @@ function renderComparativo(elId,atual,anterior,lbl){
 function renderDashboard(){
   renderStockAlert()
   renderDespesasAlert()
+  renderAgendaAlert()
   renderDashDespesas()
   renderFiadoAlert()
   renderDashCalendario()
@@ -5155,6 +5166,28 @@ function renderDespesas(){
       '<td class="td-muted">'+(d.fornecedor?escHtml(d.fornecedor):'—')+'</td>'+
       '<td><div class="td-actions" onclick="event.stopPropagation()">'+acoes+'</div></td>'+
     '</tr>'
+  }).join('')
+}
+
+function renderAgendaAlert(){
+  const hj=hoje()
+  const al=document.getElementById('agendaAlert')
+  const title=document.getElementById('agendaAlertTitle')
+  const list=document.getElementById('agendaAlertList')
+  if(!al||!title||!list)return
+  // Eventos de hoje não concluídos
+  const hoje_evs=agenda.filter(e=>e.data===hj&&!e.concluido)
+    .sort((a,b)=>(a.hora||'')>(b.hora||'')?1:-1)
+  if(!hoje_evs.length){al.style.display='none';return}
+  al.style.display='block'
+  title.textContent=hoje_evs.length+' evento'+(hoje_evs.length>1?'s':'')+' hoje'
+  list.innerHTML=hoje_evs.map(e=>{
+    const tipo=_agendaTipoPorId(e.tipo)
+    return'<div style="font-size:12px;color:var(--text-dim);display:flex;align-items:center;gap:6px">'+
+      '<span>'+tipo.icone+'</span>'+
+      (e.hora?'<span style="font-family:JetBrains Mono,monospace;color:var(--accent);font-size:11px">'+e.hora+'</span>':'')+
+      '<span>'+escHtml(e.titulo)+(e.clienteNome?' · <span style="color:var(--text-muted)">'+escHtml(e.clienteNome)+'</span>':'')+'</span>'+
+    '</div>'
   }).join('')
 }
 
@@ -7388,7 +7421,7 @@ function render(){
     if(btn)btn.textContent=t==='light'?'🌙':'☀️'
   }catch(e){}
   renderDashboard();renderClientes();renderProdutos();renderServicos();renderVendas()
-  renderEntradas();renderCaixa();renderDespesas();renderFornecedores();renderVendedores();renderFiado();atualizarResumo();populateSelects()
+  renderEntradas();renderCaixa();renderDespesas();renderFornecedores();renderVendedores();renderFiado();renderAgenda();atualizarResumo();populateSelects()
   const min=config.estoqueMin!==undefined?config.estoqueMin:3
   const z=produtos.filter(p=>p.estoque<=0).length
   const b2=produtos.filter(p=>p.estoque>0&&p.estoque<=min).length
